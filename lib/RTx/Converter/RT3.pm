@@ -7,6 +7,9 @@ __PACKAGE__->mk_accessors(qw(config _merge_list));
 
 use RTx::Converter::RT3::Config;
 use Encode;
+use Date::Format;
+use MIME::Parser;
+use Carp;
 
 =head1 NAME
 
@@ -328,12 +331,348 @@ sub create_ticket {
     die $msg unless $val;
 
     if ($args{Told}) {
-        # Create/Import doesn't bubble Told up properly in some RT3s
+        # Create/Import doesn't bubble Told up properly in some RT3.6.3 and earlier
         $ticket->__Set( Field => 'Told', Value => $args{Told} );
     }
 
+    $ticket = $self->create_transactions( Ticket => $ticket,
+                                          Transactions => $args{Transactions} );
+
     return $ticket;
 }
+
+sub create_transactions {
+    my $self = shift;
+    my %args = @_;
+    my $ticket = $args{Ticket};
+    my $path = $args{Path};
+
+    my $Status = "open";
+    my $Queue = "(unknown)";
+    my $Area = '';
+    my $Subject = '';
+    my $Owner = $RT::Nobody->Id;
+    my $Priority = $ticket->InitialPriority();
+    my $FinalPriority = $ticket->Priority();
+
+    foreach my $txn (@{$args{Transactions}}) {
+        my (%trans_args, $MIMEObj);
+        
+        print "t$txn->{id}";
+        
+        my $load_content = 0;
+        $trans_args{'Type'} = '';
+        $trans_args{'Field'} = '';
+        
+        if ( ( $txn->{type} eq 'create' ) or ($txn->{type} eq 'import') ) {
+            $load_content = 1;
+            $trans_args{'Type'} = "Create";
+        } 
+        elsif ( $txn->{type} eq 'status' ) {
+            $trans_args{'Type'} = "Status";
+            $trans_args{'Field'} = "Status";
+            $trans_args{'OldValue'} = $Status;
+            $trans_args{'NewValue'} = $txn->{trans_data};
+            $Status = $txn->{trans_data};
+        } 
+        elsif ( $txn->{type} eq 'correspond' ) {
+            $load_content = 1;
+            $trans_args{'Type'} = "Correspond";
+        } 
+        elsif ( $txn->{type} eq 'comments' ) {
+            $load_content = 1;
+            $trans_args{'Type'} = "Comment";
+        } 
+        elsif ( $txn->{type} eq 'queue_id' ) {
+            $trans_args{'Type'} = "Set";
+            $trans_args{'Field'} = "Queue";
+            $trans_args{'OldValue'} = $Queue;
+            $trans_args{'NewValue'} = $txn->{trans_data};
+            $Queue = $txn->{trans_data};
+        } 
+        elsif ( $txn->{type} eq 'owner' ) {
+
+            $trans_args{'Type'} = "Owner";
+            $trans_args{'Field'} ="Owner";
+            $trans_args{'OldValue'} = $Owner;
+            $txn->{trans_data} ||= 'Nobody';
+            
+            my $new_user = new RT::User($RT::SystemUser);
+            $new_user->Load($txn->{'trans_data'});
+            $trans_args{'NewValue'} = $new_user->Id;
+            
+            my $actor = new RT::User($RT::SystemUser);
+            $txn->{actor} = 'RT_System' if ($txn->{actor} eq '_rt_system');
+            $actor->Load($txn->{actor});
+            
+            #take/give
+        
+            $Owner = $RT::Nobody->Id unless ($Owner);
+
+            if ($Owner == $RT::Nobody->Id &&
+                $txn->{trans_data} eq $txn->{actor} ) {
+                $trans_args{'Type'} = 'Take';
+            } elsif ( $Owner == $actor->Id  &&
+                      $new_user->Id == $RT::Nobody->Id ) {
+                $trans_args{'Type'} = 'Untake';
+            } elsif ( $Owner != $RT::Nobody->Id) {
+                $trans_args{'Type'} = 'Steal';
+            } else {
+                $trans_args{'Type'} = 'Give';
+            }        
+            
+            $Owner = $new_user->Id;
+            
+        } 
+        elsif ( $txn->{type} eq 'effective_sn' ) {
+            $trans_args{'Type'} = "AddLink";
+            $trans_args{'Field'} ="MemberOf";
+            $trans_args{'Data'} = "Ticket ". $ticket->Id.
+              " MergedInto ticket ". $txn->{trans_data};
+            
+        } 
+        elsif ( $txn->{type} eq 'area' ) {
+            $trans_args{'Type'} = "CustomField";
+            $trans_args{'OldValue'} = $Area;
+            $trans_args{'NewValue'} = $txn->{trans_data};
+            $Area = $txn->{trans_data};
+        } 
+        elsif ( $txn->{type} eq 'requestors' ) {
+            $trans_args{'Type'} = "AddWatcher";
+            $trans_args{'Field'} ="Requestor";
+            $trans_args{'NewValue'} = $txn->{trans_data};
+
+        } 
+        elsif ( $txn->{type} eq 'date_due' ) {
+            $trans_args{'Type'} = "Set";
+            $trans_args{'Field'} ="Due";
+            my $date = new RT::Date($RT::SystemUser);
+            $date->Set( Format=>'unix', Value=>$txn->{trans_data} );
+            $trans_args{'NewValue'} = $date->ISO();
+        } 
+        elsif ( $txn->{type} eq 'subject' ) {
+            $trans_args{'Type'} = "Set";
+            $trans_args{'Field'} ="Subject";
+            $trans_args{'OldValue'} = $Subject;
+            $trans_args{'NewValue'} = $txn->{trans_data};
+            $Subject = $txn->{trans_data};
+            
+        } 
+        elsif ( $txn->{type} eq 'priority' ) {
+            $trans_args{'Type'} = "Set";
+            $trans_args{'Field'} ="Priority";
+            $trans_args{'OldValue'} = $Priority;
+            $trans_args{'NewValue'} = $txn->{'trans_data'};
+            $Priority = $txn->{'trans_data'};
+            
+        } 
+        elsif ( $txn->{type} eq 'final_priority' ) {
+            $trans_args{'Type'} = "Set";
+            $trans_args{'Field'} ="FinalPriority";
+            $trans_args{'OldValue'} = $FinalPriority;
+            $trans_args{'NewValue'} = $txn->{'trans_data'};
+            $FinalPriority = $txn->{'trans_data'};
+            
+        } 
+        elsif ( $txn->{type} eq 'date_told' ) {
+            $trans_args{'Type'} = "Set";
+            $trans_args{'Field'} = "Told";
+            
+            my $date = new RT::Date($RT::SystemUser);
+            $date->Set( Format=>'unix', Value=>$txn->{trans_data} );
+            $trans_args{'NewValue'} = $date->ISO();
+            
+        } else {
+            die "unrecognized transaction type: $txn->{type}";
+        }
+
+        my $filename = $txn->{serial_num}.".".$txn->{id};
+        
+        if ( $load_content ) {
+            if (my $trans_file = $self->_find_transaction_file(Path => $args{Path}, 
+                                                               Date => $txn->{trans_date},
+                                                               Filename => $filename ) ) {
+                $MIMEObj = $self->_process_transaction_file(File => $trans_file);
+            }
+        }
+        
+        
+        if ( $trans_args{'Type'} ) {
+            
+            my $User = RT::User->new($RT::SystemUser);
+            
+            if ($txn->{actor}) {
+                    $User->Load( $txn->{actor} );
+                    unless ($User->Id) {
+                        $User->LoadByEmail($txn->{actor});
+                    }
+                    unless ($User->Id) {
+                        my ($val, $msg) = $User->Create(EmailAddress => $txn->{actor},
+                                                            Password => undef,
+                                                            Privileged => 0,
+                                                            Comments => undef
+                        );
+
+                        unless ($val) {
+                            die "couldn't create User for $txn->{actor}: $msg\n";
+                        }
+                    }
+            } else {
+                $User->Load($RT::Nobody->Id);
+            }
+
+            unless ($User->Id) {
+                carp "We couldn't find or create ".$txn->{actor}. ". This should never happen"
+            }
+            
+            my $created = new RT::Date($RT::SystemUser);
+            $created->Set( Format=>'unix', Value=>$txn->{'trans_date'});
+                
+            my $trans = new RT::Transaction($User);
+            
+            # Allow us to set the 'Created' attribute. 
+            $trans->{'_AccessibleCache'}{Created} = { 'read'=>1, 'write'=>1 };
+            $trans->{'_AccessibleCache'}{Creator} = { 'read'=>1, 'auto'=>1 };
+            
+            my ($transaction, $msg) = 
+              $trans->Create( Ticket => $ticket->Id,
+                              Type => $trans_args{'Type'},
+                              Data => $trans_args{'Data'},
+                              Field => $trans_args{'Field'},
+                              NewValue => $trans_args{'NewValue'},
+                              OldValue => $trans_args{'OldValue'},
+                              MIMEObj => $MIMEObj,
+                              Created => $created->ISO,
+                              ActivateScrips => 0
+                            );
+            
+            unless ($transaction) {
+                die("Couldn't create transaction for $txn->{id} $msg\n") 
+            }
+                
+            print "=".$trans->id if $self->config->debug;
+            print ".";
+        } else {
+            die "Couldn't parse ". $txn->{id};
+        }
+        
+    }
+}
+
+=head3 _find_transaction_file
+
+RT1 would sometimes get confused about timezones and store
+a file in tomorrow or yesterday's path.  Go find the file.
+
+=cut
+
+sub _find_transaction_file {
+    my $self = shift;
+    my %args = @_;
+
+    my @files;
+    foreach my $date ($args{Date},$args{Date}+43200,$args{Date}-43200) {
+
+        my $file = time2str("$args{Path}/%Y/%b/%e/",$date,'PST');
+        $file .= $args{Filename};
+        $file =~ s/ //;
+
+        print "Testing $file" if $self->config->debug;
+        if (-e $file) {
+            return $file
+        } else {
+            push @files,$file;
+        }
+    }
+    warn "none of @files exist\n";
+}
+
+=head3 _process_transaction_file
+
+We need to turn the RT1 files back into MIME objects
+This means converting the old Headers Follow line and
+the broken MIME headers into something MIME::Parser
+won't choke on.
+
+=cut
+
+sub _process_transaction_file {
+    my $self = shift;
+    my %args = @_;
+    my $trans_file = $args{Path};
+
+    print "processing file $trans_file\n" if $self->config->debug;
+            
+    open(FILE,"<$trans_file") or die $!;
+            
+            
+    my(@headers, @body);
+    my $headers = 0;
+    while (<FILE>) {
+        if ( /^--- Headers Follow ---$/ ) {
+            $headers = 1;
+            next;
+        } elsif ( $headers ) {
+            next if /^\s*$/;
+            next if /^>From /;
+            push @headers, $_;
+        } else {
+            push @body, $_;
+        }
+    }
+            
+    #clean up files with false multipart Content-type
+    my @n_headers;
+    while ( my $header = shift @headers ) {
+        if ( $header =~ /^content-type:\s*multipart\/(alternative|mixed|report|signed|digest|related)\s*;/i ) {
+            my $two = 0;
+            my $boundary;
+            if ( $header =~ /;\s*boundary=\s*"?([\-\w\.\=\/\+\%\#]+)"?/i ) {
+                $boundary = $1;
+            } elsif (( $header =~ /;\s*boundary=\s*$/i ) and  ($headers[0] =~ /\s*"?([\-\w\.\=\/\+\%\#]+)"?/i)) {
+                #special case for actual boundary on next line
+                $boundary = $1;
+                $two = 1;
+            } elsif ( $headers[0] =~ /(^|;)\s*boundary=\s*"([ \-\w\.\=\/\+\%\#]+)"/i ) { #embedded space, quotes not optional
+                $boundary = $2;
+                $two = 1;
+            } elsif ( $headers[0] =~ /(^|;)\s*boundary=\s*"?([\-\w\.\=\/\+\%\#]+)"?/i ) {
+                $boundary = $2;
+                $two = 1;
+            } elsif ( $headers[1] =~ /(^|;)\s*boundary=\s*"?([\-\w\.\=\/\+\%\#]+)"?/i ) {
+                $boundary = $2;
+                $two = 2;
+            } elsif ( $headers[2] =~ /(^|;)\s*boundary=\s*"?([\-\w\.\=\/\+\%\#]+)"?/i ) {
+                #terrible false laziness.
+                $boundary = $2;
+                $two = 3;
+            } else {
+                warn "can\'t parse $header for boundry";
+            }
+            print "looking for $boundary in body\n" if $self->config->debug;
+            unless ( grep /^(\-\-)?\Q$boundary\E(\-\-)?$/, @body ) {
+                splice(@headers, 0, $two);
+                until ( !scalar(@headers) || $headers[0] =~ /^\S/ ) {
+                    warn "**WARNING throwing away header fragment: ". shift @headers;
+                }
+                warn "false Content-type: header removed\n";
+                push @n_headers, "Content-Type: text/plain\n";
+                push @n_headers, "X-Content-Type-Munged-By: RT import tool\n";
+
+                next; #This is here so we don't push into n_headers
+            }
+        }
+        push @n_headers, $header;
+    }
+            
+    print "..parsing.." if $self->config->debug;
+    my $parser = new MIME::Parser;
+    $parser->output_to_core(1);
+    $parser->extract_nested_messages(0);
+    my $MIMEObj = $parser->parse_data( [ @n_headers, "\n", "\n", @body ] );
+    print "..parsed.." if $self->config->debug;
+    return $MIMEObj;
+} 
 
 =head3 create_links 
 
