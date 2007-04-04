@@ -77,6 +77,6 @@ sub migrate_tickets {
         print "\n$ticket->{id}.";
         $rt3->create_ticket(%$ticket);
     }
-    #$rt3->create_links;
+    $rt3->create_links;
 }
 

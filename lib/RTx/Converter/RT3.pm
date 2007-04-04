@@ -335,6 +335,55 @@ sub create_ticket {
     return $ticket;
 }
 
+=head3 create_links 
+
+creates all accumulated links.
+We do this at the end so that all the tickets will exist, rather
+than doing it during ticket creation and having to work around
+future tickets not being imported yet.
+
+=cut
+
+sub create_links {
+    my $self = shift;
+
+    my $merges = $self->_merges;
+    
+    foreach my $ticket (keys %$merges) {
+        my $into = $merges->{$ticket};
+        if ($self->config->debug) {
+            print "\nMerging $ticket into $into" 
+        } else {
+            print ".";
+        }
+
+        my $mergeinto = RT::Ticket->new($RT::SystemUser);
+        $mergeinto->Load($into);
+
+        unless ($mergeinto->Id) {
+            print "Skipping $ticket => $into because $into doesn't exist";
+            next;
+        }
+
+        # Store the link in the DB.
+        my $link = RT::Link->new($RT::SystemUser);
+        my ($linkid) = $link->Create(Target => $into,
+                                     Base => $ticket, 
+                                     Type => 'MergedInto');
+        
+        my $ticket_obj = RT::Ticket->new($RT::SystemUser);
+        $ticket_obj->Load($ticket);
+        
+        if ($ticket_obj->id != $ticket) {
+            die "Ticket mismatch ".$ticket_obj->id ." and $ticket\n";
+        }
+        my ($val, $msg) = $ticket_obj->__Set( Field => 'EffectiveId', Value => $into );
+    
+        print " couldn't set EffectiveId: $msg\n" unless ($val);
+    }
+
+}
+
 =head3 _merge_list
 
 private data storage routine to hold what tickets are merged where
@@ -345,10 +394,18 @@ takes ticket => id, into => otherid
 tracks what merges need doing after we're done
 creating all the tickets.
 
+When called without arguments, returns a hashref
+containing ticketid => ticket to merge into
+
 =cut
 
 sub _merges {
     my $self = shift;
+
+    unless (@_) {
+        return $self->_merge_list;
+    } 
+
     my %args = @_;
     my $list = $self->_merge_list;
     $list->{$args{ticket}} = $args{into};
