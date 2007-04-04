@@ -349,6 +349,7 @@ sub create_transactions {
     my $Area = '';
     my $Subject = '';
     my $Owner = $RT::Nobody->Id;
+    my $Requestor = $RT::Nobody->Id;
     my $Priority = $ticket->InitialPriority();
     my $FinalPriority = $ticket->Priority();
 
@@ -435,10 +436,37 @@ sub create_transactions {
             $Area = $txn->{trans_data};
         } 
         elsif ( $txn->{type} eq 'requestors' ) {
-            $trans_args{'Type'} = "AddWatcher";
+            # RT1 removed requestors by recording a transaction with
+            # '' for trans_data.  For RT3 we need to say "DelWatcher" 
+            # AND tell RT which requestor we're nuking.
             $trans_args{'Field'} ="Requestor";
-            $trans_args{'NewValue'} = $txn->{trans_data};
 
+            if ($txn->{trans_data}) {
+                $trans_args{'Type'} = "AddWatcher";
+                # earlier RTs stored email addresses in the Transaction
+                # RT3 calls Load on that address and goes splody
+                # since Load only works on id/username
+                my $user = RT::User->new($RT::SystemUser);
+                $user->Load($txn->{trans_data});
+                unless ($user->Id) {
+                    $user->LoadByEmail($txn->{trans_data});
+                }
+                unless ($user->Id) {
+                    my ($val, $msg) = $user->Create(Name => $txn->{trans_data},
+                                                    EmailAddress => $txn->{trans_data},
+                                                    Password => undef,
+                                                    Privileged => 0,
+                                                    Comments => undef);
+                    unless ($val) {
+                        die "Can't create user for $txn->{trans_data}: $msg";
+                    }
+                }
+                $trans_args{NewValue} = $user->Id;
+                $Requestor = $user->Id;
+            } else {
+                $trans_args{Type} = "DelWatcher";
+                $trans_args{OldValue} = $Requestor;
+            }
         } 
         elsif ( $txn->{type} eq 'date_due' ) {
             $trans_args{'Type'} = "Set";
