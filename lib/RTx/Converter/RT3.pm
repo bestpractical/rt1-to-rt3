@@ -6,7 +6,6 @@ use base qw(Class::Accessor::Fast);
 __PACKAGE__->mk_accessors(qw(config));
 
 use RTx::Converter::RT3::Config;
-use RT::User;
 use Encode;
 
 =head1 NAME
@@ -201,6 +200,73 @@ sub _create_queue_area_cf {
 
     return $cf;
 
+}
+
+=head2 create_queue_acl 
+
+Takes 
+ Queue => RT::Queue
+ Acl => acl data from RT1
+
+Sets a number of new rights based on the old display/manipulate/admin 
+categories.  This should probably be reworked manually to use groups
+once RT3 is being tested.  But, if you have a lot of users, this will
+at least get you converted.
+
+XXX Possibly create 3 groups, granting rights on the queues and
+adding users to the groups, rather than doing individual rights
+
+=cut
+
+sub create_queue_acl {
+    my $self = shift;
+    my %args = @_;
+
+    my $queue    = $args{Queue};
+    my $acl      = $args{Acl};
+    my $username = delete $acl->{user_id};
+
+
+    my %rightlist = (
+       display    => [qw(SeeQueue ShowTemplate ShowScrips 
+                         ShowTicket ShowTicketComments)],
+       manipulate => [qw(CreateTicket ReplyToTicket CommentOnTicket 
+                         OwnTicket ModifyTicket DeleteTicket)],
+       admin      => [qw(ModifyACL ModifyQueueWatchers AdminCustomField
+                         ModifyTemplate ModifyScrips)] 
+    );
+
+    my @rights = map { @{$rightlist{$_}||[]} } keys %$acl;
+
+    return unless @rights;
+    
+    my $user = RT::User->new($RT::SystemUser);
+    $user->Load($username);
+    
+    unless ($user->id) {
+        return "\nCouldn't find user $username Not granting rights\n";
+    }
+
+    my $principal = $user->PrincipalObj;
+    
+    print "\nAdding rights for $username to ".$queue->Name if $self->config->debug;
+    foreach my $right (@rights) {
+        print "...$right" if $self->config->debug;
+        my ($val,$msg) = $principal->GrantRight( Right  => $right,
+                                                 Object  => $queue);
+        unless ($val) {
+            return "\nFailed to grant $right to $username: $msg\n";
+        }
+    }
+    
+    print "...adding as AdminCc." if $self->config->debug;
+    my ($val,$msg) = $queue->AddWatcher( Type        => 'AdminCC', 
+                                         PrincipalId => $principal->Id );
+    unless ($val) {
+        return "\nFailed to make $username an AdminCc: $msg\n";
+    }
+
+    return;
 }
 
 =head3 _encode_data

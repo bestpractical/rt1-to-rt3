@@ -30,7 +30,6 @@ print "\n\nMigrating Queues\n";
 migrate_queues();
 print "\n\nDone.  Time to check all the data\n";
 
-# migrate our users
 sub migrate_users {
     $RT::Handle->SimpleQuery("DELETE FROM Users where Name = 'root'");
     while (my $user = $rt1->get_user) {
@@ -48,10 +47,20 @@ sub migrate_queues {
         unless ($queue_obj) {
             die "Failed to import queue ".Dumper($queue);
         }
+
+        # handle "Areas", turning them into CFs
         while (my $area = $rt1->get_area( Name => $queue_obj->Name )) {
             if (my $msg = $rt3->create_queue_area( Queue => $queue_obj, 
-                    Area => $area->{area} )) {
-                warn "Failed to create area $area->{area} for queue ".$queue_obj->Name." $msg";
+                                                   Area  => $area->{area} )) {
+                print "Failed to create area $area->{area} for queue ".$queue_obj->Name." $msg";
+            }
+        }
+
+        # convert the old Queue ACLs into new RT rights
+        while (my $acl = $rt1->get_queue_acl( Name => $queue_obj->Name )) {
+            if (my $msg = $rt3->create_queue_acl( Queue => $queue_obj, 
+                                                  Acl   => $acl )) {
+                print "Failed to create acl ".Dumper($acl)." for queue ".$queue_obj->Name." $msg";
             }
         }
     }

@@ -246,8 +246,36 @@ sub get_area {
     $self->_clean_sth('Area') unless $area_data;
 
     return $area_data;
+}
 
+=head3 get_queue_acl
 
+Intended to be called in a loop.
+Wraps over the DBH iterator.  When called for the first time, 
+will fetch the acls for the queue and returns one as a hashref.  
+Will keep returning one until we run out.
+
+Takes one argument, Name => Queue's Name
+
+=cut
+
+sub get_queue_acl {
+    my $self = shift;
+    my %args = @_;
+
+    my $sth = $self->_sth('ACL');
+
+    unless ($sth) {
+        my $sql = 'select user_id, display, manipulate, admin from queue_acl where queue_id = ?';
+        $sth = $self->_run_query( sql => $sql, placeholders => [$args{Name}] );
+        $self->_sth(ACL=> $sth);
+    }
+
+    my $acl_data = $sth->fetchrow_hashref;
+
+    $self->_clean_sth('ACL') unless $acl_data;
+
+    return $acl_data;
 }
 
 =head1 AUTHOR
