@@ -688,7 +688,7 @@ sub _load_or_create_user {
     my %args = @_;
     $args{Name} ||= $args{EmailAddress};
 
-    my $user_obj = RT::user_obj->new($RT::Systemuser_obj);
+    my $user_obj = RT::User->new($RT::SystemUser);
 
     $user_obj->Load( $args{Name} );
     unless ($user_obj->Id) {
