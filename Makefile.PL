@@ -6,5 +6,7 @@ all_from('lib/RTx/Converter.pm');
 requires('Test::More');
 requires('Class::Accessor::Fast');
 requires('RT' => '3.6');
+requires('Date::Format');
+requires('MIME::Parser');
 
 &WriteAll;
