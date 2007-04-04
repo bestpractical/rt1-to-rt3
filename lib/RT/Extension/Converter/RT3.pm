@@ -1,11 +1,11 @@
-package RTx::Converter::RT3;
+package RT::Extension::Converter::RT3;
 
 use warnings;
 use strict;
 use base qw(Class::Accessor::Fast);
 __PACKAGE__->mk_accessors(qw(config _merge_list));
 
-use RTx::Converter::RT3::Config;
+use RT::Extension::Converter::RT3::Config;
 use Encode;
 use Date::Format;
 use MIME::Parser;
@@ -13,13 +13,13 @@ use Carp;
 
 =head1 NAME
 
-RTx::Converter::RT3 - Handle the RT3 side of a conversion
+RT::Extension::Converter::RT3 - Handle the RT3 side of a conversion
 
 
 =head1 SYNOPSIS
 
-    use RTx::Converter::RT3;
-    my $converter = RTx::Converter::RT3->new;
+    use RT::Extension::Converter::RT3;
+    my $converter = RT::Extension::Converter::RT3->new;
 
 =head1 DESCRIPTION
 
@@ -37,7 +37,7 @@ sub new {
     my $class = shift;
 
     my $self = $class->SUPER::new(@_);
-    $self->config(RTx::Converter::RT3::Config->new);
+    $self->config(RT::Extension::Converter::RT3::Config->new);
     return $self;
 }
 

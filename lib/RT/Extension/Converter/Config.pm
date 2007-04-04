@@ -1,4 +1,4 @@
-package RTx::Converter::Config;
+package RT::Extension::Converter::Config;
 
 use warnings;
 use strict;
@@ -8,23 +8,23 @@ __PACKAGE__->mk_accessors(qw(debug));
 
 =head1 NAME
 
-RTx::Converter::Config - config data for any importers
+RT::Extension::Converter::Config - config data for any importers
 
 
 =head1 SYNOPSIS
 
-Generally accessed from an RTx::Converter object
+Generally accessed from an RT::Extension::Converter object
 
- use RTx::Converter;
- my $converter = RTx::Convert->new;
+ use RT::Extension::Converter;
+ my $converter = RT::Extension::Convert->new;
  warn "debugging info" if $converter->config->debug;
   
 =head1 DESCRIPTION
 
 Methods that we expect any converter to have access to.
 
-Config data that is specific to the RTx converters should
-go in RTx::Converter::RTx::Config.
+Config data that is specific to the RT::Extension converters should
+go in RT::Extension::Converter::RTx::Config.
 
 =head1 METHODS
 

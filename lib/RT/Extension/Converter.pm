@@ -1,4 +1,4 @@
-package RTx::Converter;
+package RT::Extension::Converter;
 
 our $VERSION = '0.02';
 
@@ -9,14 +9,14 @@ use Carp;
 
 =head1 NAME
 
-RTx::Converter - base class for rtX-to-rt3 scripts
+RT::Extension::Converter - base class for rtX-to-rt3 scripts
 
 
 =head1 SYNOPSIS
 
-    use RTx::Converter;
-    my $rt1converter = RTx::Converter->new( type => 'rt1' );
-    my $rt3converter = RTx::Converter->new( type => 'rt3' );
+    use RT::Extension::Converter;
+    my $rt1converter = RT::Extension::Converter->new( type => 'rt1' );
+    my $rt3converter = RT::Extension::Converter->new( type => 'rt3' );
 
     foreach my $user ($rt1converter->users) {
         $rt3converter->add_user( $user );

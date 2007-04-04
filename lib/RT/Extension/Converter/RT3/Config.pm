@@ -1,5 +1,5 @@
-package RTx::Converter::RT3::Config;
-use base qw/RTx::Converter::Config/;
+package RT::Extension::Converter::RT3::Config;
+use base qw/RT::Extension::Converter::Config/;
 use warnings;
 use strict;
 
@@ -7,12 +7,12 @@ __PACKAGE__->mk_accessors(qw(default_queue encoding));
 
 =head1 NAME
 
-RTx::Converter::RT3::Config - config data for the RT3 importer
+RT::Extension::Converter::RT3::Config - config data for the RT3 importer
 
 
 =head1 SYNOPSIS
 
-    use RTx::Converter::RT1::Config;
+    use RT::Extension::Converter::RT1::Config;
     
 Usually retrieved from a converter object with
 

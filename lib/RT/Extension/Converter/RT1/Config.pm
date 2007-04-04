@@ -1,5 +1,5 @@
-package RTx::Converter::RT1::Config;
-use base qw/RTx::Converter::Config/;
+package RT::Extension::Converter::RT1::Config;
+use base qw/RT::Extension::Converter::Config/;
 use warnings;
 use strict;
 
@@ -8,12 +8,12 @@ __PACKAGE__->mk_accessors(qw(dbuser dbpassword database dbhost data_directory
 
 =head1 NAME
 
-RTx::Converter::RT1::Config - config data for the RT1 importer
+RT::Extension::Converter::RT1::Config - config data for the RT1 importer
 
 
 =head1 SYNOPSIS
 
-    use RTx::Converter::RT1::Config;
+    use RT::Extension::Converter::RT1::Config;
     
 Usually retrieved from a converter object with
 

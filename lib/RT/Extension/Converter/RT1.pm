@@ -1,22 +1,22 @@
-package RTx::Converter::RT1;
+package RT::Extension::Converter::RT1;
 
 use warnings;
 use strict;
 use base qw(Class::Accessor::Fast);
 __PACKAGE__->mk_accessors(qw(config _handle ));
 
-use RTx::Converter::RT1::Config;
+use RT::Extension::Converter::RT1::Config;
 use DBI;
 
 =head1 NAME
 
-RTx::Converter::RT1 - Handle the RT1 side of a conversion
+RT::Extension::Converter::RT1 - Handle the RT1 side of a conversion
 
 
 =head1 SYNOPSIS
 
-    use RTx::Converter::RT1;
-    my $converter = RTx::Converter::RT1->new;
+    use RT::Extension::Converter::RT1;
+    my $converter = RT::Extension::Converter::RT1->new;
 
 =head1 DESCRIPTION
 
@@ -34,7 +34,7 @@ sub new {
     my $class = shift;
 
     my $self = $class->SUPER::new(@_);
-    $self->config(RTx::Converter::RT1::Config->new);
+    $self->config(RT::Extension::Converter::RT1::Config->new);
     return $self;
 }
 
