@@ -338,6 +338,13 @@ sub create_ticket {
     return $ticket;
 }
 
+=head3 create_transactions
+
+takes Path => /path/to/transaction/file, Ticket => RT::Ticket, 
+Transactions => [arrayref of transaction data]
+
+=cut
+
 sub create_transactions {
     my $self = shift;
     my %args = @_;
