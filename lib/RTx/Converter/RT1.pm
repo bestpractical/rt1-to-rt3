@@ -290,7 +290,25 @@ sub get_ticket {
     my $self = shift;
     my %args = @_;
 
-    my $sql = 'select * from each_req limit 100';
+    my $sql = <<SQL;
+select serial_num as id,
+       effective_sn as EffectiveId,
+       status as Status,
+       requestors as Requestors,
+       owner as Owner,
+       subject as Subject,
+       priority as Priority,
+       final_priority as FinalPriority,
+       initial_priority as InitialPriority,
+       date_due as Due,
+       date_told as Told,
+       date_created as Created,
+       date_acted as Updated,
+       queue_id as Queue,
+       area as Area
+from each_req 
+limit 100
+SQL
     my $ticket_data = $self->_fetch_data( name => 'Ticket', sql => $sql );
 
     return $ticket_data;

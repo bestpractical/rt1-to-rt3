@@ -3,7 +3,7 @@ package RTx::Converter::RT3;
 use warnings;
 use strict;
 use base qw(Class::Accessor::Fast);
-__PACKAGE__->mk_accessors(qw(config));
+__PACKAGE__->mk_accessors(qw(config _merge_list));
 
 use RTx::Converter::RT3::Config;
 use Encode;
@@ -266,6 +266,88 @@ sub create_queue_acl {
         return "\nFailed to make $username an AdminCc: $msg\n";
     }
 
+    return;
+}
+
+=head3 create_ticket 
+
+Takes arguments similar to RT3::Ticket's Create.
+Will take a Requestors argument and try to chop it up into
+individual Requestor values.
+
+=cut
+
+sub create_ticket {
+    my $self = shift;
+    my %args = @_;
+
+    # track what merges need to be done later, after all
+    # the tickets are created (Rather than playing games
+    # to see if the ticket we're merging into has been 
+    # created yet)
+    if ($args{EffectiveId} && $args{EffectiveId} != $args{id}) {
+            print "merging into $args{EffectiveId}";
+            $self->_merges( ticket => $args{id},
+                            into   => $args{EffectiveId} );
+            $args{Status} = 'resolved';
+    }
+
+    if ($args{Status} eq 'dead') {
+        $args{Status} = 'resolved';
+    }
+
+    my @requestors = split(',',$args{Requestors});
+        
+    # if they had an old queue, stuff the new one into general
+    my $queue = new RT::Queue($RT::SystemUser);
+    $queue->Load($args{Queue});
+    unless ($queue->id) {
+        print "...can't find queue id for $args{id} queue $args{Queue} - using default";
+        $queue->Load($self->config->default_queue);
+    }
+    $args{Queue} = $queue;
+        
+    # RT1 stored dates in "Seconds from the epoch" so we 
+    # need to convert that to ISO so RT3 can grok it
+    foreach my $type (qw(Due Told Created Updated)) {
+        if (defined $args{$type} && $args{type} =~ /^\d+$/) {
+            my $date = new RT::Date($RT::SystemUser);
+            $date->Set( Format => 'unix', Value => $args{$type} );
+            $args{$type} = $date->ISO;
+        }
+    }
+
+    if ($args{Area} && (my $area = delete $args{Area})) {
+        print "setting Area $area" if $self->config->debug;
+        my $cf_obj = $queue->CustomField('Area');
+        $args{'CustomField-'.$cf_obj->Id} = $area;;
+    }
+
+    my $ticket = new RT::Ticket($RT::SystemUser);
+    my ($val, $msg) = $ticket->Import(Requestor => \@requestors, %args); 
+    die $msg unless $val;
+
+    return $ticket;
+}
+
+=head3 _merge_list
+
+private data storage routine to hold what tickets are merged where
+
+=head3 _merges
+
+takes ticket => id, into => otherid
+tracks what merges need doing after we're done
+creating all the tickets.
+
+=cut
+
+sub _merges {
+    my $self = shift;
+    my %args = @_;
+    my $list = $self->_merge_list;
+    $list->{$args{ticket}} = $args{into};
+    $self->_merge_list($list);
     return;
 }
 
