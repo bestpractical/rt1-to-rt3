@@ -596,7 +596,7 @@ sub _process_transaction_file {
 
     print "\nprocessing file $trans_file" if $self->config->debug;
             
-    open(FILE,"<$trans_file") or die $!;
+    open (FILE,"<$trans_file") or die "can't open [$trans_file] $!";
             
             
     my(@headers, @body);
