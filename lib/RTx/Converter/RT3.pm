@@ -355,7 +355,7 @@ sub create_transactions {
     foreach my $txn (@{$args{Transactions}}) {
         my (%trans_args, $MIMEObj);
         
-        print "t$txn->{id}";
+        print "t";
         
         my $load_content = 0;
         $trans_args{'Type'} = '';
@@ -394,7 +394,7 @@ sub create_transactions {
             $trans_args{'OldValue'} = $Owner;
             $txn->{trans_data} ||= 'Nobody';
             
-            my $new_user = new RT::User($RT::SystemUser);
+            my $new_user = RT::User->new($RT::SystemUser);
             $new_user->Load($txn->{'trans_data'});
             $trans_args{'NewValue'} = $new_user->Id;
             
@@ -546,13 +546,9 @@ sub create_transactions {
             unless ($transaction) {
                 die("Couldn't create transaction for $txn->{id} $msg\n") 
             }
-                
-            print "=".$trans->id if $self->config->debug;
-            print ".";
         } else {
             die "Couldn't parse ". $txn->{id};
         }
-        
     }
 }
 
@@ -667,7 +663,7 @@ sub _process_transaction_file {
     $parser->output_to_core(1);
     $parser->extract_nested_messages(0);
     my $MIMEObj = $parser->parse_data( [ @n_headers, "\n", "\n", @body ] );
-    print "..parsed.." if $self->config->debug;
+    print "parsed.." if $self->config->debug;
     return $MIMEObj;
 } 
 
