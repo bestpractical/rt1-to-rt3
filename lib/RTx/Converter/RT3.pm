@@ -578,6 +578,7 @@ sub _find_transaction_file {
         }
     }
     warn "none of @files exist\n";
+    return;
 }
 
 =head3 _process_transaction_file
