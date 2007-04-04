@@ -28,6 +28,8 @@ print "Migrating Users\n";
 migrate_users();
 print "\n\nMigrating Queues\n";
 migrate_queues();
+print "\n\nMigrating Tickets\n";
+migrate_tickets();
 print "\n\nDone.  Time to check all the data\n";
 
 sub migrate_users {
@@ -41,8 +43,12 @@ sub migrate_users {
 }
 
 sub migrate_queues {
-    $RT::Handle->SimpleQuery("DELETE FROM Queues where Name = 'general'");
     while (my $queue = $rt1->get_queue) {
+        if ($queue->{Name} =~ /^general$/i) {
+            # RT1 didn't have a default queue, so the client might have named
+            # it "problems" and confused things in rt3 that want a general queue.
+            $RT::Handle->SimpleQuery("DELETE FROM Queues where Name = 'general'");
+        }
         my $queue_obj = $rt3->create_queue(%$queue);
         unless ($queue_obj) {
             die "Failed to import queue ".Dumper($queue);
@@ -52,7 +58,7 @@ sub migrate_queues {
         while (my $area = $rt1->get_area( Name => $queue_obj->Name )) {
             if (my $msg = $rt3->create_queue_area( Queue => $queue_obj, 
                                                    Area  => $area->{area} )) {
-                print "Failed to create area $area->{area} for queue ".$queue_obj->Name." $msg";
+                die "Failed to create area $area->{area} for queue ".$queue_obj->Name." $msg";
             }
         }
 
@@ -60,9 +66,17 @@ sub migrate_queues {
         while (my $acl = $rt1->get_queue_acl( Name => $queue_obj->Name )) {
             if (my $msg = $rt3->create_queue_acl( Queue => $queue_obj, 
                                                   Acl   => $acl )) {
-                print "Failed to create acl ".Dumper($acl)." for queue ".$queue_obj->Name." $msg";
+                die "Failed to create acl ".Dumper($acl)." for queue ".$queue_obj->Name." $msg";
             }
         }
     }
+}
+
+sub migrate_tickets {
+    while (my $ticket = $rt1->get_ticket) {
+        print "\n$ticket->{id}.";
+        $rt3->create_ticket(%$ticket);
+    }
+    #$rt3->create_links;
 }
 
