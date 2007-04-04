@@ -1,0 +1,10 @@
+Changes
+MANIFEST
+META.yml # Will be created by "make dist"
+Makefile.PL
+README
+lib/RTx/Converter.pm
+lib/RTx/Converter/RT1.pm
+t/00.load.t
+t/99.pod-coverage.t
+t/99.pod.t
