@@ -3,7 +3,7 @@ use base qw/RTx::Converter::Config/;
 use warnings;
 use strict;
 
-__PACKAGE__->mk_accessors(qw(default_queue));
+__PACKAGE__->mk_accessors(qw(default_queue encoding));
 
 =head1 NAME
 
@@ -28,6 +28,10 @@ Useful config values for the RT3 converter.
 
 Where to put tickets from deleted queues
 
+=head2 encoding
+
+What encoding to put data in before handing it to RT3's methods
+
 =head2 new
 
 creates an RT3 config object and sets some defaults 
@@ -38,7 +42,8 @@ sub new {
     my $class = shift;
     my $self = $class->SUPER::new(@_);
 
-    $self->default_queue("General");
+    $self->default_queue('General');
+    $self->encoding('iso-8859-1');
 
     return $self;
 }
