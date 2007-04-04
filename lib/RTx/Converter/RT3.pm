@@ -159,7 +159,7 @@ sub create_queue_area {
     }
 
     my ($val,$msg) = $cf->AddValue( Name => $args{Area} );
-    return $msg;
+    return $val ? '' : $msg ;
 }
 
 =head3 _create_queue_area_cf
