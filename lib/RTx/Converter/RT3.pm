@@ -63,7 +63,7 @@ sub create_user {
         $is_superuser = 1;
     }
 
-	my $user = RT::User->new($RT::SystemUser);
+    my $user = RT::User->new($RT::SystemUser);
 
     %args = %{$self->_encode_data(\%args)};
     $user->Load( $args{Name} );
@@ -74,7 +74,7 @@ sub create_user {
     }
     
     local $RT::MinimumPasswordLength = 1; # some people from RT1 have short passwords
-	my ($val, $msg) =  $user->Create( %args );
+    my ($val, $msg) =  $user->Create( %args );
 
     if ($val) {
         print "\nAdded user ".$user->Name if $self->config->debug;
@@ -106,14 +106,14 @@ sub create_queue {
     # RT3 really doesn't like undef arguments
     %args = map { $_ => $args{$_} } grep { defined $args{$_} } keys %args;
 
-	my $queue = RT::Queue->new($RT::SystemUser);
+    my $queue = RT::Queue->new($RT::SystemUser);
 
     %args = %{$self->_encode_data(\%args)};
-	# Try to load up the current queue by name. avoids duplication.
-	$queue->Load($args{Name});
-	
-	#if the queue isn't there, create one.
-	if ($queue->id) {
+    # Try to load up the current queue by name. avoids duplication.
+    $queue->Load($args{Name});
+    
+    #if the queue isn't there, create one.
+    if ($queue->id) {
         print "\nLoaded queue ".$queue->Name." from the database" if $self->config->debug;
         return $queue;
     }
