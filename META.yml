@@ -3,7 +3,7 @@ author: Kevin Falcone  C<< <falcone@bestpractical.com> >>
 distribution_type: module
 generated_by: Module::Install version 0.64
 license: perl
-name: RTx-Converter
+name: RT-Extension-Converter
 no_index: 
   directory: 
     - inc
@@ -14,4 +14,4 @@ requires:
   MIME::Parser: 0
   RT: 3.6
   Test::More: 0
-version: 0.01
+version: 0.03

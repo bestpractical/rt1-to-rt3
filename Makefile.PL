@@ -1,8 +1,8 @@
 use inc::Module::Install;
 
-name ('RTx-Converter');
+name ('RT-Extension-Converter');
 abstract('Convert RT1 installations to RT3');
-all_from('lib/RTx/Converter.pm');
+all_from('lib/RT/Extension/Converter.pm');
 requires('Test::More');
 requires('Class::Accessor::Fast');
 requires('RT' => '3.6');
