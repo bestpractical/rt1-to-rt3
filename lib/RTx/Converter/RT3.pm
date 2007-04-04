@@ -310,11 +310,11 @@ sub create_ticket {
     # RT1 stored dates in "Seconds from the epoch" so we 
     # need to convert that to ISO so RT3 can grok it
     foreach my $type (qw(Due Told Created Updated)) {
-        if (defined $args{$type} && $args{type} =~ /^\d+$/) {
+        if (defined $args{$type} && $args{$type} =~ /^\d+$/) {
             my $date = new RT::Date($RT::SystemUser);
             $date->Set( Format => 'unix', Value => $args{$type} );
             $args{$type} = $date->ISO;
-        }
+        } 
     }
 
     if ($args{Area} && (my $area = delete $args{Area})) {
@@ -326,6 +326,11 @@ sub create_ticket {
     my $ticket = new RT::Ticket($RT::SystemUser);
     my ($val, $msg) = $ticket->Import(Requestor => \@requestors, %args); 
     die $msg unless $val;
+
+    if ($args{Told}) {
+        # Create/Import doesn't bubble Told up properly in some RT3s
+        $ticket->__Set( Field => 'Told', Value => $args{Told} );
+    }
 
     return $ticket;
 }
