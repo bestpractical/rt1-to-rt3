@@ -453,21 +453,7 @@ sub create_transactions {
                 # earlier RTs stored email addresses in the Transaction
                 # RT3 calls Load on that address and goes splody
                 # since Load only works on id/username
-                my $user = RT::User->new($RT::SystemUser);
-                $user->Load($txn->{trans_data});
-                unless ($user->Id) {
-                    $user->LoadByEmail($txn->{trans_data});
-                }
-                unless ($user->Id) {
-                    my ($val, $msg) = $user->Create(Name => $txn->{trans_data},
-                                                    EmailAddress => $txn->{trans_data},
-                                                    Password => undef,
-                                                    Privileged => 0,
-                                                    Comments => undef);
-                    unless ($val) {
-                        die "Can't create user for $txn->{trans_data}: $msg";
-                    }
-                }
+                my $user = $self->_load_or_create_user(EmailAddress => $txn->{trans_data});
                 $trans_args{NewValue} = $user->Id;
                 $Requestor = $user->Id;
             } else {
@@ -531,32 +517,13 @@ sub create_transactions {
         
         if ( $trans_args{'Type'} ) {
             
-            my $User = RT::User->new($RT::SystemUser);
-            
+            my $User;
             if ($txn->{actor}) {
-                    $User->Load( $txn->{actor} );
-                    unless ($User->Id) {
-                        $User->LoadByEmail($txn->{actor});
-                    }
-                    unless ($User->Id) {
-                        my ($val, $msg) = $User->Create(EmailAddress => $txn->{actor},
-                                                            Password => undef,
-                                                            Privileged => 0,
-                                                            Comments => undef
-                        );
-
-                        unless ($val) {
-                            die "couldn't create User for $txn->{actor}: $msg\n";
-                        }
-                    }
+               $User = $self->_load_or_create_user(EmailAddress => $txn->{actor});
             } else {
+                $User = RT::User->new($RT::System);
                 $User->Load($RT::Nobody->Id);
             }
-
-            unless ($User->Id) {
-                carp "We couldn't find or create ".$txn->{actor}. ". This should never happen"
-            }
-            
             my $created = new RT::Date($RT::SystemUser);
             $created->Set( Format=>'unix', Value=>$txn->{'trans_date'});
                 
@@ -585,6 +552,7 @@ sub create_transactions {
             die "Couldn't parse ". $txn->{id};
         }
     }
+    return $ticket;
 }
 
 =head3 _find_transaction_file
@@ -703,6 +671,47 @@ sub _process_transaction_file {
     return $MIMEObj;
 } 
 
+=head3 _load_or_create_user
+
+Given an EmailAddress, Name (username)
+will try to load the user by username first and
+then by EmailAddress.  If that fails, a new unprivileged 
+user will be created with Name => Name|EmailAddress
+
+Will carp if loading AND creating fail
+Otherwise returns a valid user object
+
+=cut
+
+sub _load_or_create_user {
+    my $self = shift;
+    my %args = @_;
+    $args{Name} ||= $args{EmailAddress};
+
+    my $user_obj = RT::user_obj->new($RT::Systemuser_obj);
+
+    $user_obj->Load( $args{Name} );
+    unless ($user_obj->Id) {
+        $user_obj->LoadByEmail($args{EmailAddress});
+    }
+    unless ($user_obj->Id) {
+        my ($val, $msg) = $user_obj->Create(%args,
+                                            Password => undef,
+                                            Privileged => 0,
+                                            Comments => undef
+        );
+
+        unless ($val) {
+            die "couldn't create user_obj for %args{Name}: $msg\n";
+        }
+    }
+
+    unless ($user_obj->Id) {
+        carp "We couldn't find or create $args{Name}. This should never happen"
+    }
+    return $user_obj;
+}
+            
 =head3 create_links 
 
 creates all accumulated links.
