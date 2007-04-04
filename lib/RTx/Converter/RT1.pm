@@ -3,7 +3,7 @@ package RTx::Converter::RT1;
 use warnings;
 use strict;
 use base qw(Class::Accessor::Fast);
-__PACKAGE__->mk_accessors(qw(config _handle _sth));
+__PACKAGE__->mk_accessors(qw(config _handle ));
 
 use RTx::Converter::RT1::Config;
 use DBI;
@@ -97,6 +97,47 @@ sub _run_query {
     return $sth;
 }
 
+=head2 _sth
+
+Stores several named sth's for this object (since multiple queries
+can be happening simultaneously).
+
+Takes 
+ Name => sth for set
+ Name for get
+
+=cut
+
+sub _sth {
+    my $self = shift;
+
+    if (@_ > 1) {
+        my ($name,$sth) = @_;
+        $self->{sths}{$name} = $sth;
+    } elsif (@_) {
+        my $name = shift;
+        $self->{sths}{$name};
+    } else {
+        die "You must pass at least a name to _sth";
+    }
+}
+
+=head3 _clean_sth
+
+finishes the sth and gets rid of it
+takes the name of the sth
+
+=cut
+
+sub _clean_sth {
+    my $self = shift;
+    my $name = shift;
+
+    $self->_sth($name)->finish;
+    $self->_sth($name,undef);
+    return;
+}
+
 =head2 get_user
 
 Intended to be called in a loop.
@@ -109,7 +150,7 @@ Will keep returning one until we run out.
 sub get_user {
     my $self = shift;
 
-    my $sth = $self->_sth;
+    my $sth = $self->_sth('User');
 
     unless ($sth) {
         my $sql = <<ESQL;
@@ -123,7 +164,7 @@ select user_id as Name,
 from users
 ESQL
         $sth = $self->_run_query( sql => $sql );
-        $self->_sth($sth);
+        $self->_sth(User => $sth);
     }
 
     my $user_data = $sth->fetchrow_hashref;
@@ -131,6 +172,8 @@ ESQL
     if ($user_data && !$user_data->{EmailAddress}) {
         $user_data->{EmailAddress} = $user_data->{Name}.'@'.$self->config->email_domain;
     }
+
+    $self->_clean_sth('User') unless $user_data;
 
     return $user_data;
 }
