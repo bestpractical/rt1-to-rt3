@@ -277,9 +277,23 @@ sub get_queue_acl {
     return $acl_data;
 }
 
-    $self->_clean_sth('ACL') unless $acl_data;
+=head3 get_ticket
 
-    return $acl_data;
+Intended to be called in a loop.
+Wraps over the DBH iterator.  When called for the first time, 
+will fetch all tickets and return one as a hashref.  
+Will keep returning one until we run out.
+
+=cut
+
+sub get_ticket {
+    my $self = shift;
+    my %args = @_;
+
+    my $sql = 'select * from each_req limit 100';
+    my $ticket_data = $self->_fetch_data( name => 'Ticket', sql => $sql );
+
+    return $ticket_data;
 }
 
 =head1 AUTHOR
