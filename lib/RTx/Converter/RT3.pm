@@ -60,6 +60,9 @@ sub create_user {
     # this is very RT1'y, because we kept super user rights
     # in the users table
     my $is_superuser = delete $args{SuperUser};
+    if ($args{Name} eq 'root') {
+        $is_superuser = 1;
+    }
 
 	my $user = RT::User->new($RT::SystemUser);
 
@@ -75,7 +78,7 @@ sub create_user {
 	my ($val, $msg) =  $user->Create( %args );
 
     if ($val) {
-        print "\nAdded queue ".$user->Name if $self->config->debug;
+        print "\nAdded user ".$user->Name if $self->config->debug;
         if ($is_superuser) {
             $user->PrincipalObj->GrantRight( Right => 'SuperUser', Object => $RT::System );
             print " as superuser" if $self->config->debug;
