@@ -330,7 +330,7 @@ sub get_transactions {
             sql => $sql, 
             placeholders => [$ticket_id]) ) {
         if ($transaction->{actor} && $transaction->{actor} !~ /\@/) {
-            $transaction->{actor} .= $self->config->email_domain;
+            $transaction->{actor} .= '@'.$self->config->email_domain;
         }
         push @$transactions,$transaction;
     }
