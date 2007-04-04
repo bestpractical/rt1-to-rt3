@@ -24,12 +24,36 @@ $rt1->config->database('harvardrt1');
 $rt1->config->debug(1);
 $rt3->config->debug(1);
 
+print "Migrating Users\n";
+migrate_users();
+print "\n\nMigrating Queues\n";
+migrate_queues();
+print "\n\nDone.  Time to check all the data\n";
+
 # migrate our users
-print "Migrating Users";
-$RT::Handle->SimpleQuery("DELETE FROM Users where Name = 'root'");
-while (my $user = $rt1->get_user) {
-    my $user_obj = $rt3->create_user(%$user);
-    unless ($user_obj) {
-        die "Failed to import user ".Dumper($user);
+sub migrate_users {
+    $RT::Handle->SimpleQuery("DELETE FROM Users where Name = 'root'");
+    while (my $user = $rt1->get_user) {
+        my $user_obj = $rt3->create_user(%$user);
+        unless ($user_obj) {
+            die "Failed to import user ".Dumper($user);
+        }
     }
 }
+
+sub migrate_queues {
+    $RT::Handle->SimpleQuery("DELETE FROM Queues where Name = 'general'");
+    while (my $queue = $rt1->get_queue) {
+        my $queue_obj = $rt3->create_queue(%$queue);
+        unless ($queue_obj) {
+            die "Failed to import queue ".Dumper($queue);
+        }
+        while (my $area = $rt1->get_area( Name => $queue_obj->Name )) {
+            if (my $msg = $rt3->create_queue_area( Queue => $queue_obj, 
+                    Area => $area->{area} )) {
+                warn "Failed to create area $area->{area} for queue ".$queue_obj->Name." $msg";
+            }
+        }
+    }
+}
+
