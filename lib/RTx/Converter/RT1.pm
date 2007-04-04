@@ -283,7 +283,7 @@ Intended to be called in a loop.
 Wraps over the DBH iterator.  When called for the first time, 
 will fetch all tickets and return one as a hashref.  
 This hashref will also contain all of the transactions
-on a given ticket in a special transactions key.
+on a given ticket in a special Transactions key.
 Will keep returning one until we run out.
 
 =cut
@@ -318,7 +318,7 @@ SQL
         while (my $transaction = $self->_fetch_data( name => 'Transaction', 
                                                      sql => $sql, 
                                                      placeholders => [$ticket_data->{id}]) ) {
-            push @{$ticket_data->{transactions}},$transaction;
+            push @{$ticket_data->{Transactions}},$transaction;
         }
 
     }
