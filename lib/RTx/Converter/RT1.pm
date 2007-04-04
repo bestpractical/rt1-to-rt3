@@ -282,8 +282,6 @@ sub get_queue_acl {
 Intended to be called in a loop.
 Wraps over the DBH iterator.  When called for the first time, 
 will fetch all tickets and return one as a hashref.  
-This hashref will also contain all of the transactions
-on a given ticket in a special Transactions key.
 Will keep returning one until we run out.
 
 =cut
@@ -313,17 +311,31 @@ limit 100
 SQL
     my $ticket_data = $self->_fetch_data( name => 'Ticket', sql => $sql );
 
-    if ($ticket_data) {
-        my $sql = 'select * from transactions where serial_num = ? order by trans_date asc';
-        while (my $transaction = $self->_fetch_data( name => 'Transaction', 
-                                                     sql => $sql, 
-                                                     placeholders => [$ticket_data->{id}]) ) {
-            push @{$ticket_data->{Transactions}},$transaction;
-        }
-
-    }
-
     return $ticket_data;
+}
+
+=head2 get_transactions 
+
+Takes the ticketid passed in and returns an arrayref
+of transaction data.
+
+=cut
+
+sub get_transactions {
+    my $self = shift;
+    my $ticket_id = shift;
+    my $transactions;
+
+    my $sql = 'select * from transactions where serial_num = ? order by trans_date asc';
+    while (my $transaction = $self->_fetch_data( name => 'Transaction', 
+            sql => $sql, 
+            placeholders => [$ticket_id]) ) {
+        if ($transaction->{actor} && $transaction->{actor} !~ /\@/) {
+            $transaction->{actor} .= $self->config->email_domain;
+        }
+        push @$transaction,$transaction;
+    }
+    return $transactions;
 }
 
 =head1 AUTHOR
