@@ -19,8 +19,7 @@ my $rt1 = RTx::Converter->new( type => 'RT1' );
 my $rt3 = RTx::Converter->new( type => 'RT3' );
 
 # should probably read a config file here
-$rt1->config->dbpassword('');
-$rt1->config->database('harvardrt1');
+# perldoc RTx::Converter::RT1::Config RTx::Converter::RT3::Config for options
 $rt1->config->debug(1);
 $rt3->config->debug(1);
 
@@ -74,7 +73,7 @@ sub migrate_queues {
 
 sub migrate_tickets {
     while (my $ticket = $rt1->get_ticket) {
-        print "\n$ticket->{id}.";
+        print "\n $ticket->{id}.";
         my $tick_obj = $rt3->create_ticket(%$ticket);
         my $transactions = $rt1->get_transactions($tick_obj->Id);
         $rt3->create_transactions( Ticket => $tick_obj, Transactions => $transactions,
