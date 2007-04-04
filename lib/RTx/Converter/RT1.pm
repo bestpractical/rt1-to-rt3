@@ -178,6 +178,78 @@ ESQL
     return $user_data;
 }
 
+=head3 get_queue
+
+Intended to be called in a loop.
+Wraps over the DBH iterator.  When called for the first time, 
+will fetch the queues and returns one as a hashref.  
+Will keep returning one until we run out.
+
+=cut
+
+sub get_queue {
+    my $self = shift;
+
+    my $sth = $self->_sth('Queue');
+
+    unless ($sth) {
+        my $sql = <<ESQL;
+select queue_id as Name, 
+       mail_alias as CorrespondAddress, 
+       comment_alias as CommentAddress, 
+       default_prio as InitialPriority, 
+       default_final_prio as FinalPriority, 
+       default_due_in as DefaultDueIn
+from queues
+ESQL
+        $sth = $self->_run_query( sql => $sql );
+        $self->_sth(Queue => $sth);
+    }
+
+    my $queue_data = $sth->fetchrow_hashref;
+
+    if ($queue_data) {
+        $queue_data->{Description} = "Imported from RT 1.0";
+    }
+
+    $self->_clean_sth('Queue') unless $queue_data;
+
+    return $queue_data;
+
+}
+
+=head3 get_area
+
+Intended to be called in a loop.
+Wraps over the DBH iterator.  When called for the first time, 
+will fetch the areas for the queue and returns one as a hashref.  
+Will keep returning one until we run out.
+
+Takes one argument, Name => Queue's Name
+
+=cut
+
+sub get_area {
+    my $self = shift;
+    my %args = @_;
+
+    my $sth = $self->_sth('Area');
+
+    unless ($sth) {
+        my $sql = 'select area from queue_areas where queue_id = ?';
+        $sth = $self->_run_query( sql => $sql, placeholders => [$args{Name}] );
+        $self->_sth(Area => $sth);
+    }
+
+    my $area_data = $sth->fetchrow_hashref;
+
+    $self->_clean_sth('Area') unless $area_data;
+
+    return $area_data;
+
+
+}
+
 =head1 AUTHOR
 
 Kevin Falcone  C<< <falcone@bestpractical.com> >>
