@@ -54,15 +54,16 @@ conect to the RT1 database
 
 # this probably really wants to be using DBIx::SearchBuilder or
 # some other ORM, but we're really just doing a few simple SQL calls
-# so we'll avoid having to map records, or do something else "hard"
+# so we'll avoid having to map the old tables for now
 
 sub _connect {
     my $self = shift;
     my $config = $self->config;
     
     my $dsn = sprintf("DBI:mysql:database=%s;host=%s;",
-                      $config->database, $config->dbhost );
-    warn "connecting to $dsn" if $config->debug;
+                      $config->database, $config->dbhost,
+                      { RaiseError => 1 });
+    print "connecting to $dsn" if $config->debug;
     my $dbh = DBI->connect($dsn, $config->dbuser, $config->dbpassword) 
         or die "Can't connect to RT1 database: ".$DBI::errstr;
 
@@ -100,8 +101,8 @@ sub _run_query {
 
 Intended to be called in a loop.
 Wraps over the DBH iterator.  When called for the first time, 
-will fetch the users and return one.  Will keep returning one
-until we run out.
+will fetch the users and returns one as a hashref.  
+Will keep returning one until we run out.
 
 =cut
 

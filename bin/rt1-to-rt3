@@ -3,11 +3,15 @@ use strict;
 use warnings;
 
 # this may need to change depending on your installation
-#use lib qw(/opt/rt3/lib);
+use lib qw(/opt/rt3/lib);
 use lib qw(lib); # assumes you run this uninstalled
-use lib qw(/Users/falcone/svk/rt/harvard/rt-3.6.3/lib);
 
-use Getopt::Long;
+use Data::Dumper;
+
+use RT;
+
+    RT::LoadConfig();
+    RT::Init();
 
 use RTx::Converter;
 
@@ -17,10 +21,15 @@ my $rt3 = RTx::Converter->new( type => 'RT3' );
 # should probably read a config file here
 $rt1->config->dbpassword('');
 $rt1->config->database('harvardrt1');
-use Data::Dumper;
 $rt1->config->debug(1);
 $rt3->config->debug(1);
 
+# migrate our users
+print "Migrating Users";
+$RT::Handle->SimpleQuery("DELETE FROM Users where Name = 'root'");
 while (my $user = $rt1->get_user) {
     my $user_obj = $rt3->create_user(%$user);
+    unless ($user_obj) {
+        die "Failed to import user ".Dumper($user);
+    }
 }
