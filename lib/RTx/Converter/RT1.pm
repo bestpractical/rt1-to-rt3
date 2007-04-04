@@ -307,7 +307,6 @@ select serial_num as id,
        queue_id as Queue,
        area as Area
 from each_req 
-limit 100
 SQL
     my $ticket_data = $self->_fetch_data( name => 'Ticket', sql => $sql );
 
