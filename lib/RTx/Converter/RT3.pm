@@ -7,6 +7,7 @@ __PACKAGE__->mk_accessors(qw(config));
 
 use RTx::Converter::RT3::Config;
 use RT::User;
+use Encode;
 
 =head1 NAME
 
@@ -62,6 +63,7 @@ sub create_user {
 
 	my $user = RT::User->new($RT::SystemUser);
 
+    %args = %{$self->_encode_data(\%args)};
     $user->Load( $args{Name} );
 
     if ($user->Id) {
@@ -104,6 +106,7 @@ sub create_queue {
 
 	my $queue = RT::Queue->new($RT::SystemUser);
 
+    %args = %{$self->_encode_data(\%args)};
 	# Try to load up the current queue by name. avoids duplication.
 	$queue->Load($args{Name});
 	
@@ -123,6 +126,117 @@ sub create_queue {
         return;
     }
 
+}
+
+=head3 create_queue_area
+
+Takes 
+ Queue => RT::Queue, Area => Area's name
+
+Returns an error message if making the appropriate custom fields fails.
+Otherwise returns the empty string
+
+This is rather RT1 specific.  RT2 has a more hierarchical Keyword
+option that translates into CFs.  Areas are the RT1 "custom field" 
+but there was only one of them, so we just make an RT3 Custom Field
+called Area and whack a simple select list into it
+
+=cut
+
+sub create_queue_area {
+    my $self = shift;
+    my %args = @_;
+    my $queue = delete $args{Queue};
+
+    %args = %{$self->_encode_data(\%args)};
+
+    my $cf = $self->_create_queue_area_cf($queue);
+
+    if ($self->config->debug) {
+        print "\nAdding $args{Area} to the area for ".$queue->Name;
+    }
+
+    my ($val,$msg) = $cf->AddValue( Name => $args{Area} );
+    return $msg;
+}
+
+=head3 _create_queue_area_cf
+
+Wraps up the nasty logic of loading/creating a CF for the area
+
+=cut
+
+sub _create_queue_area_cf {
+    my $self = shift;
+    my $queue = shift;
+
+    # load up the custom field
+    my $cf = RT::CustomField->new($RT::SystemUser);
+    $cf->LoadByName(
+        Name  => 'Area',
+        Queue => $queue->Id
+    );  
+
+    # look for an existing cf not assigned to this queue yet
+    unless ($cf->Id) {
+        $cf->LoadByName( Name => 'Area' );
+        if ($cf->Id) {
+            $cf->AddToObject( $queue );
+        }   
+    }   
+
+    unless ($cf->Id) {
+        $cf->Create( 
+            Name     => 'Area',
+            Type     => 'SelectSingle',
+            Queue    => $queue->Id
+        );  
+    }   
+    unless ( $cf->Id ) {
+        print "\nCouldn't create custom field Area for queue" . $queue->Name;
+    }
+
+    return $cf;
+
+}
+
+=head3 _encode_data
+
+Used to make sure data gets properly unicode'd for RT3.6.
+Failure to use this in places will make non-americans unhappy
+
+Takes a hashref of arguments, returns an encoded hashref.
+
+=cut
+
+sub _encode_data {
+    my $self = shift;
+    my %args = %{shift||{}};
+
+    foreach my $key ( keys %args ) {
+        if ( !ref( $args{$key} ) ) {
+            $args{$key} = decode( $self->config->encoding, $args{$key} );
+        }
+        elsif ( ref( $args{$key} ) eq 'ARRAY' ) {
+            my @temp = @{ $args{$key} };
+            undef $args{$key};
+            foreach my $var (@temp) {
+                if ( ref($var) ) {
+
+                    push( @{ $args{$key} }, $var );
+                }
+                else {
+                    push( @{ $args{$key} }, decode( $self->config->encoding, $var ) );
+                }
+            }
+        }
+        else {
+            die "What do I do with $key for %args. It is a "
+              . ref( { $args{$key} } );
+        }
+    }
+
+    return \%args;
 }
 
 =head1 AUTHOR
