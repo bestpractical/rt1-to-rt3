@@ -97,6 +97,33 @@ sub _run_query {
     return $sth;
 }
 
+=head3 _fetch_data 
+
+wrapper around _run_query to hide the boring
+bits of iterating over the data set and 
+cleaning up when we get to the end of the data.
+
+=cut
+
+sub _fetch_data {
+    my $self = shift;
+    my %args = @_;
+    my $name = delete $args{name};
+
+    my $sth = $self->_sth($name);
+
+    unless ($sth) {
+        $sth = $self->_run_query( %args );
+        $self->_sth( $name => $sth );
+    }
+
+    my $data = $sth->fetchrow_hashref;
+
+    $self->_clean_sth($name) unless $data;
+
+    return $data;
+}
+
 =head2 _sth
 
 Stores several named sth's for this object (since multiple queries
@@ -150,10 +177,7 @@ Will keep returning one until we run out.
 sub get_user {
     my $self = shift;
 
-    my $sth = $self->_sth('User');
-
-    unless ($sth) {
-        my $sql = <<ESQL;
+    my $sql = <<ESQL;
 select user_id as Name, 
        real_name as RealName, 
        password as Password, 
@@ -163,17 +187,12 @@ select user_id as Name,
        admin_rt as SuperUser
 from users
 ESQL
-        $sth = $self->_run_query( sql => $sql );
-        $self->_sth(User => $sth);
-    }
 
-    my $user_data = $sth->fetchrow_hashref;
+    my $user_data = $self->_fetch_data( name => 'User', sql => $sql );
 
     if ($user_data && !$user_data->{EmailAddress}) {
         $user_data->{EmailAddress} = $user_data->{Name}.'@'.$self->config->email_domain;
     }
-
-    $self->_clean_sth('User') unless $user_data;
 
     return $user_data;
 }
@@ -190,10 +209,7 @@ Will keep returning one until we run out.
 sub get_queue {
     my $self = shift;
 
-    my $sth = $self->_sth('Queue');
-
-    unless ($sth) {
-        my $sql = <<ESQL;
+    my $sql = <<ESQL;
 select queue_id as Name, 
        mail_alias as CorrespondAddress, 
        comment_alias as CommentAddress, 
@@ -202,17 +218,12 @@ select queue_id as Name,
        default_due_in as DefaultDueIn
 from queues
 ESQL
-        $sth = $self->_run_query( sql => $sql );
-        $self->_sth(Queue => $sth);
-    }
 
-    my $queue_data = $sth->fetchrow_hashref;
+    my $queue_data = $self->_fetch_data( name => 'Queue', sql => $sql );
 
     if ($queue_data) {
         $queue_data->{Description} = "Imported from RT 1.0";
     }
-
-    $self->_clean_sth('Queue') unless $queue_data;
 
     return $queue_data;
 
@@ -233,17 +244,11 @@ sub get_area {
     my $self = shift;
     my %args = @_;
 
-    my $sth = $self->_sth('Area');
+    my $sql = 'select area from queue_areas where queue_id = ?';
 
-    unless ($sth) {
-        my $sql = 'select area from queue_areas where queue_id = ?';
-        $sth = $self->_run_query( sql => $sql, placeholders => [$args{Name}] );
-        $self->_sth(Area => $sth);
-    }
-
-    my $area_data = $sth->fetchrow_hashref;
-
-    $self->_clean_sth('Area') unless $area_data;
+    my $area_data = $self->_fetch_data( name => 'Area', 
+                                        sql => $sql, 
+                                        placeholders => [$args{Name}] );
 
     return $area_data;
 }
@@ -263,15 +268,14 @@ sub get_queue_acl {
     my $self = shift;
     my %args = @_;
 
-    my $sth = $self->_sth('ACL');
+    my $sql = 'select user_id, display, manipulate, admin from queue_acl where queue_id = ?';
 
-    unless ($sth) {
-        my $sql = 'select user_id, display, manipulate, admin from queue_acl where queue_id = ?';
-        $sth = $self->_run_query( sql => $sql, placeholders => [$args{Name}] );
-        $self->_sth(ACL=> $sth);
-    }
+    my $acl_data = $self->_fetch_data( name => 'ACL', 
+                                       sql => $sql, 
+                                       placeholders => [$args{Name}] );
 
-    my $acl_data = $sth->fetchrow_hashref;
+    return $acl_data;
+}
 
     $self->_clean_sth('ACL') unless $acl_data;
 
