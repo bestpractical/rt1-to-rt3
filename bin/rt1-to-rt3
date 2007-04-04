@@ -75,8 +75,12 @@ sub migrate_queues {
 sub migrate_tickets {
     while (my $ticket = $rt1->get_ticket) {
         print "\n$ticket->{id}.";
-        $rt3->create_ticket(%$ticket);
+        my $tick_obj = $rt3->create_ticket(%$ticket);
+        my $transactions = $rt1->get_transactions($tick_obj->Id);
+        $rt3->create_transactions( Ticket => $tick_obj, Transactions => $transactions,
+                                   Path => $rt1->config->data_directory );
     }
+    print "\nCreating links\n\n";
     $rt3->create_links;
 }
 
