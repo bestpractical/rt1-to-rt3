@@ -333,7 +333,7 @@ sub get_transactions {
         if ($transaction->{actor} && $transaction->{actor} !~ /\@/) {
             $transaction->{actor} .= $self->config->email_domain;
         }
-        push @$transaction,$transaction;
+        push @$transactions,$transaction;
     }
     return $transactions;
 }

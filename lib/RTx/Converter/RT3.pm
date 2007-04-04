@@ -335,9 +335,6 @@ sub create_ticket {
         $ticket->__Set( Field => 'Told', Value => $args{Told} );
     }
 
-    $ticket = $self->create_transactions( Ticket => $ticket,
-                                          Transactions => $args{Transactions} );
-
     return $ticket;
 }
 
@@ -577,7 +574,7 @@ sub _find_transaction_file {
         $file .= $args{Filename};
         $file =~ s/ //;
 
-        print "Testing $file" if $self->config->debug;
+        print "\nTesting $file" if $self->config->debug;
         if (-e $file) {
             return $file
         } else {
@@ -599,9 +596,9 @@ won't choke on.
 sub _process_transaction_file {
     my $self = shift;
     my %args = @_;
-    my $trans_file = $args{Path};
+    my $trans_file = $args{File};
 
-    print "processing file $trans_file\n" if $self->config->debug;
+    print "\nprocessing file $trans_file" if $self->config->debug;
             
     open(FILE,"<$trans_file") or die $!;
             
