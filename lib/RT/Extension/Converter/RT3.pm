@@ -695,6 +695,10 @@ sub _load_or_create_user {
         $user_obj->LoadByEmail($args{EmailAddress});
     }
     unless ($user_obj->Id) {
+        $user_obj->Load($args{EmailAddress});
+
+    }
+    unless ($user_obj->Id) {
         my ($val, $msg) = $user_obj->Create(%args,
                                             Password => undef,
                                             Privileged => 0,
@@ -702,7 +706,8 @@ sub _load_or_create_user {
         );
 
         unless ($val) {
-            die "couldn't create user_obj for %args{Name}: $msg\n";
+            warn "couldn't create user_obj for ".$args{Name}.": $msg\n";
+	    return RT->Nobody();
         }
     }
 
