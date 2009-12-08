@@ -573,14 +573,14 @@ sub _find_transaction_file {
         $file .= $args{Filename};
         $file =~ s/ //;
 
-        print "\nTesting $file" if $self->config->debug;
+        #print "\nTesting $file" if $self->config->debug;
         if (-e $file) {
             return $file
         } else {
             push @files,$file;
         }
     }
-    warn "none of @files exist\n";
+    warn "ERROR: Missing transaction - none of ".join(",",@files)." exist\n";
     return;
 }
 
