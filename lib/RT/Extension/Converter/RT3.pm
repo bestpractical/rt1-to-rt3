@@ -235,7 +235,7 @@ sub create_queue_acl {
                          ShowTicket ShowTicketComments)],
        manipulate => [qw(CreateTicket ReplyToTicket CommentOnTicket 
                          OwnTicket ModifyTicket DeleteTicket)],
-       admin      => [qw(ModifyACL ModifyQueueWatchers AdminCustomField
+       admin      => [qw(ModifyACL ModifyQueueWatchers AssignCustomFields
                          ModifyTemplate ModifyScrips)] 
     );
 
