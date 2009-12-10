@@ -596,78 +596,12 @@ won't choke on.
 sub _process_transaction_file {
     my $self = shift;
     my %args = @_;
-    my $trans_file = $args{File};
-
-    print "\nprocessing file $trans_file" if $self->config->debug;
-            
-    open (FILE,"<$trans_file") or die "can't open [$trans_file] $!";
-            
-            
-    my(@headers, @body);
-    my $headers = 0;
-    while (<FILE>) {
-        if ( /^--- Headers Follow ---$/ ) {
-            $headers = 1;
-            next;
-        } elsif ( $headers ) {
-            next if /^\s*$/;
-            next if /^>From /;
-            push @headers, $_;
-        } else {
-            push @body, $_;
-        }
-    }
-            
-    #clean up files with false multipart Content-type
-    my @n_headers;
-    while ( my $header = shift @headers ) {
-        if ( $header =~ /^content-type:\s*multipart\/(alternative|mixed|report|signed|digest|related)\s*;/i ) {
-            my $two = 0;
-            my $boundary;
-            if ( $header =~ /;\s*boundary=\s*"?([\-\w\.\=\/\+\%\#]+)"?/i ) {
-                $boundary = $1;
-            } elsif (( $header =~ /;\s*boundary=\s*$/i ) and  ($headers[0] =~ /\s*"?([\-\w\.\=\/\+\%\#]+)"?/i)) {
-                #special case for actual boundary on next line
-                $boundary = $1;
-                $two = 1;
-            } elsif ( $headers[0] =~ /(^|;)\s*boundary=\s*"([ \-\w\.\=\/\+\%\#]+)"/i ) { #embedded space, quotes not optional
-                $boundary = $2;
-                $two = 1;
-            } elsif ( $headers[0] =~ /(^|;)\s*boundary=\s*"?([\-\w\.\=\/\+\%\#]+)"?/i ) {
-                $boundary = $2;
-                $two = 1;
-            } elsif ( $headers[1] =~ /(^|;)\s*boundary=\s*"?([\-\w\.\=\/\+\%\#]+)"?/i ) {
-                $boundary = $2;
-                $two = 2;
-            } elsif ( $headers[2] =~ /(^|;)\s*boundary=\s*"?([\-\w\.\=\/\+\%\#]+)"?/i ) {
-                #terrible false laziness.
-                $boundary = $2;
-                $two = 3;
-            } else {
-                warn "can\'t parse $header for boundry";
-            }
-            print "looking for $boundary in body\n" if $self->config->debug;
-            unless ( grep /^(\-\-)?\Q$boundary\E(\-\-)?$/, @body ) {
-                splice(@headers, 0, $two);
-                until ( !scalar(@headers) || $headers[0] =~ /^\S/ ) {
-                    warn "**WARNING throwing away header fragment: ". shift @headers;
-                }
-                warn "false Content-type: header removed\n";
-                push @n_headers, "Content-Type: text/plain\n";
-                push @n_headers, "X-Content-Type-Munged-By: RT import tool\n";
-
-                next; #This is here so we don't push into n_headers
-            }
-        }
-        push @n_headers, $header;
-    }
-            
-    print "..parsing.." if $self->config->debug;
-    my $parser = new MIME::Parser;
+    open (FILE, "<", $args{File} ) or die "can't open [".$args{File}."] $!";
+    my ($body, $header) = split( /--- Headers Follow ---\s*[\r\n]*/gism , join("",<FILE>));
+    my $parser = MIME::Parser->new;
     $parser->output_to_core(1);
     $parser->extract_nested_messages(0);
-    my $MIMEObj = $parser->parse_data( [ @n_headers, "\n", "\n", @body ] );
-    print "parsed.." if $self->config->debug;
+    my $MIMEObj = $parser->parse_data( $header."\n\n".$body);
     return $MIMEObj;
 } 
 
