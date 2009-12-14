@@ -597,13 +597,20 @@ sub _process_transaction_file {
     my $self = shift;
     my %args = @_;
     open (FILE, "<", $args{File} ) or die "can't open [".$args{File}."] $!";
-    my ($body, $header) = split( /--- Headers Follow ---\s*[\r\n]*/gism , join("",<FILE>));
+    my $content = join("",<FILE>);
+    my ($body, $header) = split( /--- Headers Follow ---\s*[\r\n]*/gism , $content);
     my $parser = MIME::Parser->new;
     $parser->output_to_core(1);
     $parser->extract_nested_messages(0);
+    if (! $header) {
+        $header = "Content-Type: text\/plain";
+        $body =~ s/^[\r\n]*//;
+    }
+
     my $MIMEObj = $parser->parse_data( $header."\n\n".$body);
     return $MIMEObj;
-} 
+}
+
 
 =head3 _load_or_create_user
 
